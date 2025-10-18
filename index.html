@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon Map Editor</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const DungeonMapEditor = () => {
+      // Canvas refs for different layers
+      const backgroundCanvasRef = useRef(null);
+      const mapCanvasRef = useRef(null);
+      const overlayCanvasRef = useRef(null);
+      const containerRef = useRef(null);
+
+      // State
+      const [isDMView, setIsDMView] = useState(true);
+      const [tool, setTool] = useState('brush');
+      const [brushSize, setBrushSize] = useState(5);
+      const [brushColor, setBrushColor] = useState('#000000');
+      const [isDrawing, setIsDrawing] = useState(false);
+      const [lastPos, setLastPos] = useState(null);
+      const [fogRegions, setFogRegions] = useState([]);
+      const [currentRegion, setCurrentRegion] = useState([]);
+      const [revealedRegions, setRevealedRegions] = useState(new Set());
+      const [showFogRegions, setShowFogRegions] = useState(true);
+      const [showGrid, setShowGrid] = useState(true);
+      const [dmNotes, setDmNotes] = useState('');
+      const [history, setHistory] = useState([]);
+      const [historyStep, setHistoryStep] = useState(-1);
+
+      const CANVAS_WIDTH = 1200;
+      const CANVAS_HEIGHT = 800;
+      const GRID_SIZE = 25;
+
+      // Initialize canvases
+      useEffect(() => {
+        // Setup background canvas with grid
+        const bgCanvas = backgroundCanvasRef.current;
+        const mapCanvas = mapCanvasRef.current;
+        const overlayCanvas = overlayCanvasRef.current;
+
+        if (!bgCanvas || !mapCanvas || !overlayCanvas) return;
+
+        // Set canvas sizes
+        [bgCanvas, mapCanvas, overlayCanvas].forEach(canvas => {
+          canvas.width = CANVAS_WIDTH;
+          canvas.height = CANVAS_HEIGHT;
+        });
+
+        // Draw parchment background
+        const bgCtx = bgCanvas.getContext('2d');
+        bgCtx.fillStyle = '#F5E6D3';
+        bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // Draw grid on background
+        drawGrid(bgCtx);
+
+        // Clear map canvas
+        const mapCtx = mapCanvas.getContext('2d');
+        mapCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // Initialize history with empty state
+        saveToHistory();
+      }, []);
+
+      // Draw grid on background canvas
+      const drawGrid = (ctx) => {
+        if (!showGrid) {
+          ctx.fillStyle = '#F5E6D3';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          return;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(139, 90, 43, 0.15)'; // Light brown for parchment feel
+        ctx.lineWidth = 0.5;
+
+        for (let x = 0; x <= CANVAS_WIDTH; x += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, CANVAS_HEIGHT);
+          ctx.stroke();
+        }
+
+        for (let y = 0; y <= CANVAS_HEIGHT; y += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(CANVAS_WIDTH, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      };
+
+      // Update grid visibility
+      useEffect(() => {
+        const bgCanvas = backgroundCanvasRef.current;
+        if (!bgCanvas) return;
+        const bgCtx = bgCanvas.getContext('2d');
+
+        bgCtx.fillStyle = '#F5E6D3';
+        bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (showGrid) {
+          drawGrid(bgCtx);
+        }
+      }, [showGrid]);
+
+      // Redraw overlay
+      const redrawOverlay = () => {
+        const overlayCanvas = overlayCanvasRef.current;
+        const mapCanvas = mapCanvasRef.current;
+        if (!overlayCanvas || !mapCanvas) return;
+
+        const ctx = overlayCanvas.getContext('2d');
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (isDMView) {
+          // Draw fog regions for DM
+          if (showFogRegions) {
+            fogRegions.forEach((region, index) => {
+              // Use transparent red for unrevealed, transparent green for revealed
+              ctx.strokeStyle = revealedRegions.has(index) ? 'rgba(0, 255, 0, 0.6)' : 'rgba(255, 0, 0, 0.6)';
+              ctx.lineWidth = 2;
+              ctx.fillStyle = revealedRegions.has(index) ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
+
+              ctx.beginPath();
+              ctx.moveTo(region[0].x, region[0].y);
+              for (let i = 1; i < region.length; i++) {
+                ctx.lineTo(region[i].x, region[i].y);
+              }
+              ctx.closePath();
+              ctx.stroke();
+              ctx.fill();
+
+              // Add label
+              const center = region.reduce((acc, p) => ({
+                x: acc.x + p.x / region.length,
+                y: acc.y + p.y / region.length
+              }), { x: 0, y: 0 });
+
+              ctx.fillStyle = 'white';
+              ctx.strokeStyle = 'black';
+              ctx.lineWidth = 3;
+              ctx.font = 'bold 14px Arial';
+              ctx.textAlign = 'center';
+              ctx.strokeText(`Region ${index + 1}`, center.x, center.y);
+              ctx.fillText(`Region ${index + 1}`, center.x, center.y);
+            });
+
+            // Draw current region being created
+            if (tool === 'fogRegion' && currentRegion.length > 0) {
+              ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+              ctx.lineWidth = 2;
+              ctx.setLineDash([5, 5]);
+
+              ctx.beginPath();
+              ctx.moveTo(currentRegion[0].x, currentRegion[0].y);
+              for (let i = 1; i < currentRegion.length; i++) {
+                ctx.lineTo(currentRegion[i].x, currentRegion[i].y);
+              }
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
+          }
+        } else {
+          // Player view - apply fog of war
+          const mapCtx = mapCanvas.getContext('2d');
+
+          // Create temp canvas with current map state
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = CANVAS_WIDTH;
+          tempCanvas.height = CANVAS_HEIGHT;
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.drawImage(mapCanvas, 0, 0);
+
+          // Clear overlay and fill with black fog
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+          // Cut out revealed regions
+          fogRegions.forEach((region, index) => {
+            if (revealedRegions.has(index)) {
+              ctx.save();
+              ctx.globalCompositeOperation = 'destination-out';
+
+              ctx.beginPath();
+              ctx.moveTo(region[0].x, region[0].y);
+              for (let i = 1; i < region.length; i++) {
+                ctx.lineTo(region[i].x, region[i].y);
+              }
+              ctx.closePath();
+              ctx.fill();
+
+              ctx.restore();
+            }
+          });
+        }
+      };
+
+      // Update overlay when dependencies change
+      useEffect(() => {
+        redrawOverlay();
+      }, [isDMView, fogRegions, revealedRegions, showFogRegions, currentRegion, tool]);
+
+      // Save current state to history
+      const saveToHistory = () => {
+        const mapCanvas = mapCanvasRef.current;
+        if (!mapCanvas) return;
+
+        const mapCtx = mapCanvas.getContext('2d');
+        const imageData = mapCtx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // Remove any history after current step
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push({
+          mapData: imageData,
+          fogRegions: [...fogRegions]
+        });
+
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+      };
+
+      // Handle drawing start
+      const startDrawing = (e) => {
+        // Handle player clicks in player view
+        if (!isDMView) {
+          handlePlayerClick(e);
+          return;
+        }
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (tool === 'fogRegion') {
+          setCurrentRegion(prev => [...prev, { x, y }]);
+        } else {
+          setIsDrawing(true);
+          setLastPos({ x, y });
+
+          // Draw initial point
+          const mapCanvas = mapCanvasRef.current;
+          const ctx = mapCanvas.getContext('2d');
+          ctx.save();
+          ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+          ctx.fillStyle = brushColor;
+          ctx.beginPath();
+          ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      };
+
+      // Handle drawing
+      const draw = (e) => {
+        if (!isDrawing || !isDMView || tool === 'fogRegion') return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const mapCanvas = mapCanvasRef.current;
+        const ctx = mapCanvas.getContext('2d');
+
+        ctx.save();
+        ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+
+        // Only brush and eraser tools now
+        ctx.strokeStyle = brushColor;
+        ctx.fillStyle = brushColor;
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(lastPos.x, lastPos.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        setLastPos({ x, y });
+        ctx.restore();
+      };
+
+      // Handle drawing end
+      const stopDrawing = () => {
+        if (isDrawing) {
+          setIsDrawing(false);
+          setLastPos(null);
+          saveToHistory();
+        }
+      };
+
+      // Handle player clicks
+      const handlePlayerClick = (e) => {
+        if (isDMView) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Check which fog region was clicked
+        fogRegions.forEach((region, index) => {
+          if (isPointInPolygon({ x, y }, region)) {
+            setRevealedRegions(prev => new Set([...prev, index]));
+          }
+        });
+      };
+
+      // Check if point is in polygon
+      const isPointInPolygon = (point, polygon) => {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const xi = polygon[i].x, yi = polygon[i].y;
+          const xj = polygon[j].x, yj = polygon[j].y;
+
+          const intersect = ((yi > point.y) !== (yj > point.y))
+            && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      };
+
+      // Complete fog region
+      const completeFogRegion = () => {
+        if (currentRegion.length > 2) {
+          setFogRegions(prev => [...prev, currentRegion]);
+          setCurrentRegion([]);
+          saveToHistory();
+        }
+      };
+
+      // Clear map
+      const clearMap = () => {
+        const mapCanvas = mapCanvasRef.current;
+        const ctx = mapCanvas.getContext('2d');
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        saveToHistory();
+      };
+
+      // Clear fog regions
+      const clearFogRegions = () => {
+        setFogRegions([]);
+        setCurrentRegion([]);
+        setRevealedRegions(new Set());
+        saveToHistory();
+      };
+
+      // Undo/Redo
+      const undo = () => {
+        if (historyStep > 0) {
+          const step = historyStep - 1;
+          const state = history[step];
+
+          const mapCanvas = mapCanvasRef.current;
+          const ctx = mapCanvas.getContext('2d');
+          ctx.putImageData(state.mapData, 0, 0);
+
+          setFogRegions(state.fogRegions);
+          setHistoryStep(step);
+        }
+      };
+
+      const redo = () => {
+        if (historyStep < history.length - 1) {
+          const step = historyStep + 1;
+          const state = history[step];
+
+          const mapCanvas = mapCanvasRef.current;
+          const ctx = mapCanvas.getContext('2d');
+          ctx.putImageData(state.mapData, 0, 0);
+
+          setFogRegions(state.fogRegions);
+          setHistoryStep(step);
+        }
+      };
+
+      // Delete fog region
+      const deleteFogRegion = (index) => {
+        setFogRegions(prev => prev.filter((_, i) => i !== index));
+        setRevealedRegions(prev => {
+          const newSet = new Set();
+          prev.forEach(i => {
+            if (i < index) newSet.add(i);
+            else if (i > index) newSet.add(i - 1);
+          });
+          return newSet;
+        });
+        saveToHistory();
+      };
+
+      return (
+        <div className="flex h-screen bg-gray-900">
+          {/* Canvas Area */}
+          <div className="flex-1 relative bg-gray-800 flex items-center justify-center">
+            <div
+              ref={containerRef}
+              className="relative border-4 border-gray-700"
+              style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+            >
+              {/* Background layer with grid */}
+              <canvas
+                ref={backgroundCanvasRef}
+                className="absolute top-0 left-0"
+                style={{ zIndex: 0, pointerEvents: 'none' }}
+              />
+
+              {/* Map drawing layer */}
+              <canvas
+                ref={mapCanvasRef}
+                className="absolute top-0 left-0"
+                style={{ zIndex: 1, pointerEvents: 'none' }}
+              />
+
+              {/* Overlay layer for fog and regions */}
+              <canvas
+                ref={overlayCanvasRef}
+                className="absolute top-0 left-0"
+                style={{
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  cursor: isDMView ?
+                    (tool === 'eraser' ? 'grab' : 'crosshair') :
+                    'pointer'
+                }}
+              />
+            </div>
+
+            {/* View Toggle */}
+            <div className="absolute top-4 left-4 bg-gray-800 p-3 rounded-lg shadow-lg border-2 border-yellow-600">
+              <button
+                onClick={() => {
+                  setIsDMView(!isDMView);
+                  setTool('brush');
+                  setCurrentRegion([]);
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition font-bold"
+              >
+                Switch to {isDMView ? 'Player' : 'DM'} View
+              </button>
+              {!isDMView && (
+                <button
+                  onClick={() => setRevealedRegions(new Set())}
+                  className="ml-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition font-bold"
+                >
+                  Reset Fog
+                </button>
+              )}
+            </div>
+
+            {/* Scale */}
+            <div className="absolute bottom-4 left-4 bg-gray-800 p-2 rounded text-white text-sm border-2 border-yellow-600">
+              1 square = 5 feet
+            </div>
+          </div>
+
+          {/* Control Panel */}
+          <div className="w-96 bg-gray-800 text-white p-4 overflow-y-auto border-l-4 border-yellow-600">
+            <h2 className="text-2xl font-bold mb-4 text-yellow-400">
+              {isDMView ? "DM Map Editor" : "Player Map"}
+            </h2>
+
+            {isDMView ? (
+              <>
+                {/* Drawing Tools */}
+                <div className="mb-4 p-3 bg-gray-700 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-300">Drawing Tools:</h3>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <button
+                      onClick={() => setTool('brush')}
+                      className={`px-3 py-2 rounded ${tool === 'brush' ? 'bg-blue-600' : 'bg-gray-600'} hover:bg-blue-500`}
+                    >
+                      🖌️ Brush
+                    </button>
+                    <button
+                      onClick={() => setTool('eraser')}
+                      className={`px-3 py-2 rounded ${tool === 'eraser' ? 'bg-blue-600' : 'bg-gray-600'} hover:bg-blue-500`}
+                    >
+                      🧹 Eraser
+                    </button>
+                    <button
+                      onClick={() => setTool('fogRegion')}
+                      className={`px-3 py-2 rounded ${tool === 'fogRegion' ? 'bg-green-600' : 'bg-gray-600'} hover:bg-green-500`}
+                    >
+                      🌫️ Fog Region
+                    </button>
+                  </div>
+
+                  {tool === 'fogRegion' ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-yellow-200">
+                        Click to add points to define a revealable area.
+                      </p>
+                      <button
+                        onClick={completeFogRegion}
+                        disabled={currentRegion.length < 3}
+                        className="px-3 py-1 bg-green-600 rounded disabled:bg-gray-600 disabled:opacity-50"
+                      >
+                        Complete Region ({currentRegion.length} points)
+                      </button>
+                      <button
+                        onClick={() => setCurrentRegion([])}
+                        className="ml-2 px-3 py-1 bg-red-600 rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Brush Size */}
+                      <div className="mb-3">
+                        <label className="text-sm">Brush Size: {brushSize}</label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="50"
+                          value={brushSize}
+                          onChange={(e) => setBrushSize(Number(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Color Picker */}
+                      <div className="mb-3">
+                        <label className="text-sm block mb-2">Color:</label>
+                        <div className="space-y-2">
+                          {/* Main color picker */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={brushColor}
+                              onChange={(e) => setBrushColor(e.target.value)}
+                              className="w-20 h-10 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={brushColor}
+                              onChange={(e) => setBrushColor(e.target.value)}
+                              className="px-2 py-1 bg-gray-600 rounded text-xs w-24"
+                              placeholder="#000000"
+                            />
+                          </div>
+
+                          {/* Quick color presets */}
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              onClick={() => setBrushColor('#000000')}
+                              className="w-8 h-8 bg-black border border-gray-400"
+                              title="Black"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#FFFFFF')}
+                              className="w-8 h-8 bg-white border border-gray-400"
+                              title="White"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#8B4513')}
+                              className="w-8 h-8 border border-gray-400"
+                              style={{ backgroundColor: '#8B4513' }}
+                              title="Brown"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#808080')}
+                              className="w-8 h-8 bg-gray-500 border border-gray-400"
+                              title="Gray"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#FF0000')}
+                              className="w-8 h-8 bg-red-500 border border-gray-400"
+                              title="Red"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#00FF00')}
+                              className="w-8 h-8 bg-green-500 border border-gray-400"
+                              title="Green"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#0000FF')}
+                              className="w-8 h-8 bg-blue-500 border border-gray-400"
+                              title="Blue"
+                            />
+                            <button
+                              onClick={() => setBrushColor('#FFD700')}
+                              className="w-8 h-8 border border-gray-400"
+                              style={{ backgroundColor: '#FFD700' }}
+                              title="Gold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Map Controls */}
+                <div className="mb-4 p-3 bg-gray-700 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-300">Map Controls:</h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={clearMap}
+                      className="px-3 py-1 bg-red-600 rounded hover:bg-red-700 w-full"
+                    >
+                      Clear Map
+                    </button>
+                    <button
+                      onClick={clearFogRegions}
+                      className="px-3 py-1 bg-orange-600 rounded hover:bg-orange-700 w-full"
+                    >
+                      Clear All Fog Regions
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={undo}
+                        disabled={historyStep <= 0}
+                        className="px-3 py-1 bg-blue-600 rounded disabled:bg-gray-600 flex-1"
+                      >
+                        ↶ Undo
+                      </button>
+                      <button
+                        onClick={redo}
+                        disabled={historyStep >= history.length - 1}
+                        className="px-3 py-1 bg-blue-600 rounded disabled:bg-gray-600 flex-1"
+                      >
+                        ↷ Redo
+                      </button>
+                    </div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={showGrid}
+                        onChange={(e) => setShowGrid(e.target.checked)}
+                        className="mr-2"
+                      />
+                      Show Grid
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={showFogRegions}
+                        onChange={(e) => setShowFogRegions(e.target.checked)}
+                        className="mr-2"
+                      />
+                      Show Fog Regions
+                    </label>
+                  </div>
+                </div>
+
+                {/* Fog Regions List */}
+                <div className="mb-4 p-3 bg-gray-700 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-300">Fog Regions ({fogRegions.length}):</h3>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {fogRegions.map((region, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <span>Region {index + 1}</span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              if (revealedRegions.has(index)) {
+                                setRevealedRegions(prev => {
+                                  const newSet = new Set(prev);
+                                  newSet.delete(index);
+                                  return newSet;
+                                });
+                              } else {
+                                setRevealedRegions(prev => new Set([...prev, index]));
+                              }
+                            }}
+                            className={`px-2 py-0.5 text-xs rounded ${revealedRegions.has(index) ? 'bg-green-600' : 'bg-gray-600'
+                              }`}
+                          >
+                            {revealedRegions.has(index) ? 'Revealed' : 'Hidden'}
+                          </button>
+                          <button
+                            onClick={() => deleteFogRegion(index)}
+                            className="px-2 py-0.5 bg-red-600 text-xs rounded"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="mb-4 p-3 bg-gray-700 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-300">How to Use:</h3>
+                  <ol className="text-sm space-y-1">
+                    <li>1. Draw your map with brush tool</li>
+                    <li>2. Use eraser to fix mistakes</li>
+                    <li>3. Switch to Fog Region tool</li>
+                    <li>4. Click points to outline clickable areas</li>
+                    <li>5. Complete each region (min 3 points)</li>
+                    <li>6. Switch to Player View to test</li>
+                  </ol>
+                </div>
+
+                {/* DM Notes */}
+                <div className="bg-gray-700 p-4 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-400">Session Notes</h3>
+                  <textarea
+                    value={dmNotes}
+                    onChange={(e) => setDmNotes(e.target.value)}
+                    className="w-full h-32 p-2 bg-gray-600 rounded text-sm"
+                    placeholder="Room descriptions, encounters, treasure..."
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Player Instructions */}
+                <div className="bg-gray-700 p-4 rounded">
+                  <h3 className="font-bold mb-2 text-yellow-300">Exploration:</h3>
+                  <p className="text-sm mb-3">
+                    Click on dark areas to explore and reveal the map.
+                  </p>
+
+                  <h3 className="font-bold mb-2 text-yellow-300">Revealed Areas:</h3>
+                  <div className="space-y-1">
+                    {Array.from(revealedRegions).map(index => (
+                      <div key={index} className="text-sm">
+                        • Region {index + 1}
+                      </div>
+                    ))}
+                    {revealedRegions.size === 0 && (
+                      <p className="text-sm text-gray-400">No areas explored yet</p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-gray-600 rounded">
+                    <p className="text-xs text-yellow-200">
+                      Tip: The DM has defined {fogRegions.length} explorable regions
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // Render the app
+    ReactDOM.render(<DungeonMapEditor />, document.getElementById('root'));
+  </script>
+</body>
+
+</html>
