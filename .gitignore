@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+.cursor/*
+
+# Environment variables
+.env
+
+
