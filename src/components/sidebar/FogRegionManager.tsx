@@ -14,7 +14,7 @@ const FogRegionManager: React.FC = () => {
     <div className="mb-4 p-3 bg-gray-700 rounded">
       <h3 className="font-bold mb-2 text-yellow-300">Fog Regions ({fogRegions.length}):</h3>
       <div className="space-y-1 max-h-40 overflow-y-auto">
-        {fogRegions.map((region, index) => (
+        {fogRegions.map((_region, index) => (
           <div key={index} className="flex items-center justify-between text-sm">
             <span>Region {index + 1}</span>
             <div className="flex gap-1">

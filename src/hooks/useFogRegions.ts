@@ -8,7 +8,6 @@ export const useFogRegions = () => {
     setFogRegions,
     currentRegion,
     setCurrentRegion,
-    revealedRegions,
     setRevealedRegions,
     mapCanvasRef,
     history,

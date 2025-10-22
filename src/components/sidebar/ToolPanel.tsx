@@ -22,25 +22,25 @@ const ToolPanel: React.FC = () => {
 
   return (
     <div className="mb-4 p-3 bg-gray-700 rounded">
-      <h3 className="font-bold mb-2 text-yellow-300">Drawing Tools:</h3>
+      <h3 className="font-bold mb-2 text-yellow-300">Drawing Tools (shortcuts):</h3>
       <div className="grid grid-cols-3 gap-2 mb-3">
         <button
           onClick={() => handleToolChange('brush')}
           className={`px-3 py-2 rounded ${tool === 'brush' ? 'bg-blue-600' : 'bg-gray-600'} hover:bg-blue-500`}
         >
-          🖌️ Brush
+          🖌️ Brush (B)
         </button>
         <button
           onClick={() => handleToolChange('eraser')}
           className={`px-3 py-2 rounded ${tool === 'eraser' ? 'bg-blue-600' : 'bg-gray-600'} hover:bg-blue-500`}
         >
-          🧹 Eraser
+          🧹 Eraser (X)
         </button>
         <button
           onClick={() => handleToolChange('fogRegion')}
           className={`px-3 py-2 rounded ${tool === 'fogRegion' ? 'bg-green-600' : 'bg-gray-600'} hover:bg-green-500`}
         >
-          🌫️ Fog Region
+          🌫️ Fog Region (R)
         </button>
       </div>
 
@@ -54,7 +54,7 @@ const ToolPanel: React.FC = () => {
             disabled={currentRegion.length < 3}
             className="px-3 py-1 bg-green-600 rounded disabled:bg-gray-600 disabled:opacity-50"
           >
-            Complete Region ({currentRegion.length} points)
+            Complete Region ({currentRegion.length} points) (T)
           </button>
           <button
             onClick={cancelFogRegion}

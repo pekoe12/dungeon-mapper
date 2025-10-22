@@ -100,9 +100,11 @@ const Sidebar: React.FC = () => {
 
       {/* Content */}
       <div className={`p-4 overflow-y-auto h-full ${sidebarCollapsed ? 'invisible' : 'visible'} ${!sidebarCollapsed ? 'pl-6' : ''} no-select`}>
-        <h2 className="text-2xl font-bold mb-4 text-yellow-400">
-          {isDMView ? "DM Map Editor" : "Player Map"}
-        </h2>
+        <div className="flex items-center mb-4">
+          <h2 className="text-2xl font-bold text-yellow-400 ml-auto">
+            {isDMView ? "Dungeon Map Editor" : "Player Map"}
+          </h2>
+        </div>
 
         {isDMView ? (
           <>
@@ -112,7 +114,7 @@ const Sidebar: React.FC = () => {
 
             {/* Saved Maps section is in MapControls */}
 
-            {/* Instructions */}
+            {/* Instructions 
             <div className="mb-4 p-3 bg-gray-700 rounded">
               <h3 className="font-bold mb-2 text-yellow-300">How to Use:</h3>
               <ol className="text-sm space-y-1">
@@ -123,7 +125,7 @@ const Sidebar: React.FC = () => {
                 <li>5. Complete each region (min 3 points)</li>
                 <li>6. Switch to Player View to test</li>
               </ol>
-            </div>
+            </div>*/}
 
             {/* DM Notes */}
             <div className="bg-gray-700 p-4 rounded">

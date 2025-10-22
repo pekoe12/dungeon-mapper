@@ -63,7 +63,7 @@ const MapControls: React.FC = () => {
             onClick={handleExport}
             className="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 w-full"
           >
-            📥 Export as Image
+            Export as PNG
           </button>
           <button
             onClick={clearMap}

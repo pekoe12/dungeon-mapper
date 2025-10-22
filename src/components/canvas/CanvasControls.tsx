@@ -5,13 +5,12 @@ import { useCanvasPanning, useCanvasResize } from '../../hooks/useCanvas';
 const CanvasControls: React.FC = () => {
   const {
     zoom,
-    setZoom,
     gridSize,
     canvasWidth,
     canvasHeight,
   } = useAppContext();
   
-  const { centerView, resetView } = useCanvasPanning();
+  const { centerView, zoomByFactor } = useCanvasPanning();
   const { resizeCanvas } = useCanvasResize();
 
   return (
@@ -20,14 +19,14 @@ const CanvasControls: React.FC = () => {
       <div className="absolute top-4 right-4 bg-gray-800/90 backdrop-blur p-2 rounded-lg shadow-lg border border-gray-700 z-10">
         <div className="flex gap-2 items-center">
           <button
-            onClick={() => setZoom(Math.min(4, zoom * 1.2))}
+            onClick={() => zoomByFactor(1.2, window.innerWidth - 1, 1)}
             className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
           >
             +
           </button>
           <span className="text-white text-sm w-16 text-center">{Math.round(zoom * 100)}%</span>
           <button
-            onClick={() => setZoom(Math.max(0.25, zoom * 0.8))}
+            onClick={() => zoomByFactor(0.8, 1, 1)}
             className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
           >
             -
@@ -38,15 +37,10 @@ const CanvasControls: React.FC = () => {
           >
             Center
           </button>
-          <button
-            onClick={resetView}
-            className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
-          >
-            Reset
-          </button>
+          {/* Remove Reset per UX; Center now sets zoom=100% and centers */}
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          Ctrl+Scroll: Zoom | Shift+Drag: Pan
+          Scroll: Zoom | Shift+Click: Pan
         </div>
       </div>
 

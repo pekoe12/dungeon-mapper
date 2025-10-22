@@ -1,17 +1,11 @@
-# Dependencies
+.DS_Store
 node_modules
-.pnp
-.pnp.js
 
-dist
-dist-ssr
-*.local
+.vscode/
+.cursor/
 
-# Editor directories and files
-.vscode/*
-.cursor/*
+test/
 
-# Environment variables
 .env
 
-
+dist/

@@ -1,8 +1,7 @@
 import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { useCanvasPanning, useCanvasSetup } from '../../hooks/useCanvas';
-import { useFogRegions } from '../../hooks/useFogRegions';
-import { isPointInPolygon } from '../../utils/canvas';
+// removed unused imports
 
 interface CanvasAreaProps {
   onDrawStart: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -29,24 +28,27 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ onDrawStart, onDrawMove, onDraw
   useCanvasSetup();
   
   // Pan and zoom functionality
-  const { handleWheel, handlePanStart } = useCanvasPanning();
+  const { handleWheel, handlePanStart, isPanTrigger } = useCanvasPanning();
 
   return (
     <div
       ref={containerRef}
       className="relative"
       style={{
-        transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
-        transformOrigin: '0 0',
         width: canvasWidth,
         height: canvasHeight,
         border: '4px solid #374151',
-        transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+        cursor: isPanning ? 'grabbing' : undefined,
+        transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+        transformOrigin: '0 0'
       }}
       onWheel={handleWheel}
       onMouseDown={(e) => {
-        handlePanStart(e);
-        if (!isPanning) onDrawStart(e);
+        if (isPanTrigger(e as any)) {
+          handlePanStart(e);
+          return;
+        }
+        onDrawStart(e);
       }}
       onMouseMove={onDrawMove}
       onMouseUp={onDrawEnd}
