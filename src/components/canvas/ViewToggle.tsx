@@ -24,7 +24,7 @@ const ViewToggle: React.FC = () => {
         onClick={handleViewToggle}
         className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition font-bold"
       >
-        Switch to {isDMView ? 'Player' : 'DM'} View
+        Switch to {isDMView ? 'Player' : 'Dungeon Map'} View
       </button>
       {!isDMView && (
         <button

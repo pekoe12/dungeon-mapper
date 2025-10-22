@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
-import { MapState, SavedMap } from '../types/map';
+import { SavedMap } from '../types/map';
 import { HistoryState, Point, Region, Tool } from '../types';
 
 interface AppContextProps {

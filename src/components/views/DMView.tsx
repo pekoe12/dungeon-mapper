@@ -4,8 +4,8 @@ import CanvasArea from '../canvas/CanvasArea';
 import CanvasControls from '../canvas/CanvasControls';
 import ViewToggle from '../canvas/ViewToggle';
 import { useFogRegions } from '../../hooks/useFogRegions';
+import { useCanvasPanning } from '../../hooks/useCanvas';
 import { drawBrushStroke } from '../../utils/canvas';
-import { Point } from '../../types';
 
 const DMView: React.FC = () => {
   const {
@@ -21,7 +21,8 @@ const DMView: React.FC = () => {
     isDMView,
   } = useAppContext();
   
-  const { addPointToRegion, saveToHistory, checkAndRevealRegion } = useFogRegions();
+  const { addPointToRegion, saveToHistory, checkAndRevealRegion, completeFogRegion, cancelFogRegion } = useFogRegions();
+  const { toWorld, isPanTrigger } = useCanvasPanning();
 
   // Handle drawing start
   const handleDrawStart = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -31,10 +32,11 @@ const DMView: React.FC = () => {
       return;
     }
 
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (isPanTrigger(e)) {
+      return;
+    }
+
+    const { x, y } = toWorld(e.clientX, e.clientY);
 
     if (tool === 'fogRegion') {
       addPointToRegion({ x, y });
@@ -64,9 +66,9 @@ const DMView: React.FC = () => {
     if (!isDrawing || !isDMView || tool === 'fogRegion') return;
     if (!containerRef.current || !lastPos) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (isPanTrigger(e as any)) return;
+
+    const { x, y } = toWorld((e as any).clientX, (e as any).clientY);
 
     const mapCanvas = mapCanvasRef.current;
     if (!mapCanvas) return;
@@ -100,12 +102,26 @@ const DMView: React.FC = () => {
     if (isDMView) return;
     if (!containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = toWorld(e.clientX, e.clientY);
 
     checkAndRevealRegion({ x, y });
   };
+
+  // Allow global 'T' to complete a fog region explicitly (not on 3rd point automatically)
+  React.useEffect(() => {
+    const onComplete = () => {
+      if (tool === 'fogRegion') completeFogRegion();
+    };
+    const onCancel = () => {
+      if (tool === 'fogRegion') cancelFogRegion();
+    };
+    window.addEventListener('complete-fog-region', onComplete as EventListener);
+    window.addEventListener('cancel-fog-region', onCancel as EventListener);
+    return () => {
+      window.removeEventListener('complete-fog-region', onComplete as EventListener);
+      window.removeEventListener('cancel-fog-region', onCancel as EventListener);
+    };
+  }, [tool, completeFogRegion, cancelFogRegion]);
 
   return (
     <>

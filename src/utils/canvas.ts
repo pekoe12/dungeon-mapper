@@ -104,7 +104,7 @@ export const drawCurrentRegion = (
 // Apply fog of war for player view
 export const applyFogOfWar = (
   ctx: CanvasRenderingContext2D,
-  mapCanvas: HTMLCanvasElement,
+  _mapCanvas: HTMLCanvasElement,
   fogRegions: Region[],
   revealedRegions: Set<number>,
   width: number,
