@@ -6,6 +6,7 @@ import ViewToggle from '../canvas/ViewToggle';
 import { useFogRegions } from '../../hooks/useFogRegions';
 import { useCanvasPanning } from '../../hooks/useCanvas';
 import { drawBrushStroke } from '../../utils/canvas';
+import { useRealtimeSession } from '../../realtime/useRealtimeSession';
 
 const DMView: React.FC = () => {
   const {
@@ -23,6 +24,7 @@ const DMView: React.FC = () => {
   
   const { addPointToRegion, saveToHistory, checkAndRevealRegion, completeFogRegion, cancelFogRegion } = useFogRegions();
   const { toWorld, isPanTrigger } = useCanvasPanning();
+  const realtime = useRealtimeSession();
 
   // Handle drawing start
   const handleDrawStart = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -58,6 +60,11 @@ const DMView: React.FC = () => {
       ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+
+      // Broadcast begin draw if hosting
+      if (realtime.role === 'dm' && realtime.status === 'live') {
+        realtime.send({ type: 'draw_begin', color: brushColor, size: brushSize, mode: tool === 'eraser' ? 'eraser' : 'brush', at: { x, y } });
+      }
     }
   };
 
@@ -86,6 +93,11 @@ const DMView: React.FC = () => {
     );
 
     setLastPos({ x, y });
+
+    // Broadcast segment if hosting
+    if (realtime.role === 'dm' && realtime.status === 'live') {
+      realtime.send({ type: 'draw_seg', from: lastPos, to: { x, y }, color: brushColor, size: brushSize, mode: tool === 'eraser' ? 'eraser' : 'brush' });
+    }
   };
 
   // Handle drawing end
@@ -94,12 +106,17 @@ const DMView: React.FC = () => {
       setIsDrawing(false);
       setLastPos(null);
       saveToHistory();
+      if (realtime.role === 'dm' && realtime.status === 'live') {
+        realtime.send({ type: 'draw_end' });
+      }
     }
   };
 
   // Handle player clicks
   const handlePlayerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isDMView) return;
+    // Only DM in preview mode can trigger reveals
+    if (!(realtime.role === 'dm')) return;
     if (!containerRef.current) return;
 
     const { x, y } = toWorld(e.clientX, e.clientY);

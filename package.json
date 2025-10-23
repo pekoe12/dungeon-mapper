@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --project config/tsconfig.json && vite build",
+    "build": "tsc --project config/tsconfig.json && vite build && cp config/_routes.json dist/_routes.json",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "deploy": "npm run build && wrangler pages deploy dist --project-name=map-a-dungeon --config ./config/wrangler.toml"

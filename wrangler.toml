@@ -1,0 +1,20 @@
+# wrangler.toml
+
+name = "map-a-dungeon"
+main = "./_worker.ts"
+compatibility_date = "2025-10-18"
+
+# Build configuration
+[build]
+command = "npm ci && npm run build"
+
+# Static site configuration
+[site]
+pages_build_output_dir = "dist/"
+
+[durable_objects]
+bindings = [{ name = "ROOMS", class_name = "Room" }]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["Room"]

@@ -1,6 +1,7 @@
 import { useAppContext } from '../context/AppContext';
 import { deleteMap, saveMap } from '../utils/storage';
 import { SavedMap } from '../types/map';
+import { getRealtime } from '../realtime/useRealtimeSession';
 
 export const useMapStorage = () => {
   const {
@@ -64,6 +65,15 @@ export const useMapStorage = () => {
       setDmNotes(mapData.dmNotes || '');
       setShowGrid(mapData.showGrid !== undefined ? mapData.showGrid : true);
       setMapName(mapData.name);
+
+      // Broadcast map replace if hosting
+      const rt = getRealtime();
+      if (rt.status === 'live' && rt.role === 'dm') {
+        try {
+          const image = mapCanvas.toDataURL('image/webp', 0.9);
+          rt.send({ type: 'map_replace', image });
+        } catch {}
+      }
     };
     img.src = mapData.mapImage;
 

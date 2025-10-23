@@ -1,6 +1,7 @@
 import { useAppContext } from '../context/AppContext';
 import { isPointInPolygon } from '../utils/canvas';
 import { Point } from '../types';
+import { getRealtime } from '../realtime/useRealtimeSession';
 
 export const useFogRegions = () => {
   const {
@@ -28,6 +29,10 @@ export const useFogRegions = () => {
     if (currentRegion.length > 2) {
       setFogRegions(prev => [...prev, currentRegion]);
       setCurrentRegion([]);
+      const rt = getRealtime();
+      if (rt.status === 'live' && rt.role === 'dm') {
+        try { rt.send({ type: 'fog_add_region', points: currentRegion }); } catch {}
+      }
       saveToHistory();
     }
   };
@@ -69,6 +74,10 @@ export const useFogRegions = () => {
     fogRegions.forEach((region, index) => {
       if (isPointInPolygon(point, region)) {
         setRevealedRegions(prev => new Set([...prev, index]));
+        const rt = getRealtime();
+        if (rt.status === 'live' && rt.role === 'dm') {
+          try { rt.send({ type: 'fog_reveal_indices', indices: [index] }); } catch {}
+        }
       }
     });
   };
@@ -78,12 +87,20 @@ export const useFogRegions = () => {
     setFogRegions([]);
     setCurrentRegion([]);
     setRevealedRegions(new Set());
+    const rt = getRealtime();
+    if (rt.status === 'live' && rt.role === 'dm') {
+      try { rt.send({ type: 'fog_clear_all' }); } catch {}
+    }
     saveToHistory();
   };
 
   // Reset all revealed regions (hide fog again)
   const resetRevealedRegions = () => {
     setRevealedRegions(new Set());
+    const rt = getRealtime();
+    if (rt.status === 'live' && rt.role === 'dm') {
+      try { rt.send({ type: 'fog_reset' }); } catch {}
+    }
   };
 
   // Save the current state to history
