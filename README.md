@@ -8,7 +8,7 @@
 ### Run locally
 
 ```bash
-git clone https://github.com/yourusername/dungeon-mapper.git
+git clone https://github.com/pekoe12/dungeon-mapper.git
 cd dungeon-mapper
 ```
 ```bash

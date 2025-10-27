@@ -1,17 +1,15 @@
 import React from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { useCanvasPanning, useCanvasResize } from '../../hooks/useCanvas';
+import { useCanvasPanning } from '../../hooks/useCanvas';
 
 const CanvasControls: React.FC = () => {
   const {
     zoom,
-    gridSize,
     canvasWidth,
     canvasHeight,
   } = useAppContext();
   
   const { centerView, zoomByFactor } = useCanvasPanning();
-  const { resizeCanvas } = useCanvasResize();
 
   return (
     <>
@@ -44,25 +42,11 @@ const CanvasControls: React.FC = () => {
         </div>
       </div>
 
-      {/* Canvas Size Controls */}
-      <div className="absolute bottom-4 right-4 bg-gray-800/90 backdrop-blur p-2 rounded-lg shadow-lg border border-gray-700 z-10">
-        <div className="flex gap-2 items-center text-white text-sm">
+      {/* Canvas Size Display (read-only) */}
+      <div className="absolute bottom-4 right-4 bg-gray-800/90 backdrop-blur p-2 rounded-lg shadow-lg border border-gray-700 z-10 text-white text-sm">
+        <div className="flex gap-2 items-center">
           <label>Canvas:</label>
-          <input
-            type="number"
-            value={canvasWidth}
-            onChange={(e) => resizeCanvas(Number(e.target.value), canvasHeight)}
-            className="w-20 px-2 py-1 bg-gray-700 rounded"
-            step={gridSize}
-          />
-          <span>×</span>
-          <input
-            type="number"
-            value={canvasHeight}
-            onChange={(e) => resizeCanvas(canvasWidth, Number(e.target.value))}
-            className="w-20 px-2 py-1 bg-gray-700 rounded"
-            step={gridSize}
-          />
+          <span>{canvasWidth} × {canvasHeight}</span>
         </div>
       </div>
     </>

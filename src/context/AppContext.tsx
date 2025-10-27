@@ -32,6 +32,9 @@ interface AppContextProps {
   setShowGrid: React.Dispatch<React.SetStateAction<boolean>>;
   gridSize: number;
   setGridSize: React.Dispatch<React.SetStateAction<number>>;
+  // Grid size lock
+  isGridSizeLocked: boolean;
+  setIsGridSizeLocked: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Canvas controls
   zoom: number;
@@ -44,6 +47,12 @@ interface AppContextProps {
   setCanvasWidth: React.Dispatch<React.SetStateAction<number>>;
   canvasHeight: number;
   setCanvasHeight: React.Dispatch<React.SetStateAction<number>>;
+  // Canvas sizing behavior
+  canvasCellSize: number | null;
+  setCanvasCellSize: React.Dispatch<React.SetStateAction<number | null>>;
+  // User-controlled canvas size lock
+  isCanvasSizeLocked: boolean;
+  setIsCanvasSizeLocked: React.Dispatch<React.SetStateAction<boolean>>;
   
   // DM notes
   dmNotes: string;
@@ -68,6 +77,9 @@ interface AppContextProps {
   setSidebarWidth: React.Dispatch<React.SetStateAction<number>>;
   isResizing: boolean;
   setIsResizing: React.Dispatch<React.SetStateAction<boolean>>;
+  // Map resize state
+  isResizingMap: boolean;
+  setIsResizingMap: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Canvas references
   backgroundCanvasRef: React.RefObject<HTMLCanvasElement>;
@@ -109,6 +121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
   const [mapName, setMapName] = useState<string>('Untitled Map');
   const [gridSize, setGridSize] = useState<number>(25);
+  const [isGridSizeLocked, setIsGridSizeLocked] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(384);
   const [isResizing, setIsResizing] = useState<boolean>(false);
@@ -117,6 +130,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [canvasWidth, setCanvasWidth] = useState<number>(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState<number>(CANVAS_HEIGHT);
+  const [canvasCellSize, setCanvasCellSize] = useState<number | null>(null);
+  const [isCanvasSizeLocked, setIsCanvasSizeLocked] = useState<boolean>(false);
+  const [isResizingMap, setIsResizingMap] = useState<boolean>(false);
 
   // Load saved maps on mount
   useEffect(() => {
@@ -148,14 +164,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     savedMaps, setSavedMaps,
     mapName, setMapName,
     gridSize, setGridSize,
+    isGridSizeLocked, setIsGridSizeLocked,
     sidebarCollapsed, setSidebarCollapsed,
     sidebarWidth, setSidebarWidth,
     isResizing, setIsResizing,
+    isResizingMap, setIsResizingMap,
     zoom, setZoom,
     panOffset, setPanOffset,
     isPanning, setIsPanning,
     canvasWidth, setCanvasWidth,
     canvasHeight, setCanvasHeight,
+    canvasCellSize, setCanvasCellSize,
+    isCanvasSizeLocked, setIsCanvasSizeLocked,
     backgroundCanvasRef,
     mapCanvasRef,
     overlayCanvasRef,

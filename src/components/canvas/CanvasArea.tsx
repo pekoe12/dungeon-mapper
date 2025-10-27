@@ -1,6 +1,9 @@
 import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { useCanvasPanning, useCanvasSetup } from '../../hooks/useCanvas';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - module exists at runtime
+import ResizeHandles from './ResizeHandles';
 // removed unused imports
 
 interface CanvasAreaProps {
@@ -21,7 +24,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ onDrawStart, onDrawMove, onDraw
     canvasWidth,
     canvasHeight,
     isDMView,
-    tool
+    isCanvasSizeLocked
   } = useAppContext();
 
   // Initialize canvases
@@ -38,7 +41,11 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ onDrawStart, onDrawMove, onDraw
         width: canvasWidth,
         height: canvasHeight,
         border: '4px solid #374151',
-        cursor: isPanning ? 'grabbing' : undefined,
+        cursor: isPanning 
+          ? 'grabbing' 
+          : isDMView 
+            ? 'crosshair'  // Show crosshair for all drawing tools in DM view
+            : 'pointer',   // Show pointer in player view
         transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
         transformOrigin: '0 0'
       }}
@@ -74,12 +81,14 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ onDrawStart, onDrawMove, onDraw
         className="absolute top-0 left-0"
         style={{
           zIndex: 2,
-          pointerEvents: 'none',
-          cursor: isDMView
-            ? (tool === 'eraser' ? 'grab' : 'crosshair')
-            : 'pointer'
+          pointerEvents: 'none'
         }}
       />
+
+      {/* Edge-only resize handles (DM view only and when not locked) */}
+      {isDMView && !isCanvasSizeLocked && (
+        <ResizeHandles />
+      )}
     </div>
   );
 };

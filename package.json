@@ -4,9 +4,9 @@
   "description": "Map a dungeon.",
   "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --project config/tsconfig.json && vite build",
-    "preview": "vite preview",
+    "dev": "vite --config ./config/vite.config.ts",
+    "build": "tsc --project config/tsconfig.json && vite build --config ./config/vite.config.ts",
+    "preview": "vite preview --config ./config/vite.config.ts",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "deploy": "npm run build && wrangler pages deploy dist --project-name=map-a-dungeon --config ./config/wrangler.toml"
   },
@@ -27,6 +27,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

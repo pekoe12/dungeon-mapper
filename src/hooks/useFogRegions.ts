@@ -13,9 +13,7 @@ export const useFogRegions = () => {
     history,
     setHistory,
     historyStep,
-    setHistoryStep,
-    canvasWidth,
-    canvasHeight
+    setHistoryStep
   } = useAppContext();
 
   // Add a point to the current region
@@ -94,7 +92,8 @@ export const useFogRegions = () => {
     const mapCtx = mapCanvas.getContext('2d');
     if (!mapCtx) return;
 
-    const imageData = mapCtx.getImageData(0, 0, canvasWidth, canvasHeight);
+    // Use device-pixel backing store size to match putImageData
+    const imageData = mapCtx.getImageData(0, 0, mapCanvas.width, mapCanvas.height);
 
     // Remove any history after current step
     const newHistory = history.slice(0, historyStep + 1);

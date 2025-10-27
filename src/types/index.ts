@@ -16,17 +16,7 @@ export interface PanOffset {
 // Region is an array of points
 export type Region = Point[];
 
-// SavedMap interface for map storage
-export interface SavedMap {
-  id: number;
-  name: string;
-  date: string;
-  mapImage: string;
-  fogRegions: Region[];
-  revealedRegions: number[];
-  dmNotes: string;
-  showGrid: boolean;
-}
+// SavedMap moved to src/types/map.ts (single source of truth)
 
 // HistoryState interface for undo/redo functionality
 export interface HistoryState {

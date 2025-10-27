@@ -2,7 +2,6 @@ import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { useHistory } from '../../hooks/useHistory';
 import { useMapStorage } from '../../hooks/useMapStorage';
-import { useFogRegions } from '../../hooks/useFogRegions';
 import { exportMapAsImage } from '../../utils/export';
 
 const MapControls: React.FC = () => {
@@ -13,18 +12,18 @@ const MapControls: React.FC = () => {
     setShowGrid,
     gridSize,
     setGridSize,
-    showFogRegions,
-    setShowFogRegions,
     backgroundCanvasRef,
     mapCanvasRef,
     overlayCanvasRef,
     isDMView,
-    savedMaps
+    isCanvasSizeLocked,
+    setIsCanvasSizeLocked,
+    isGridSizeLocked,
+    setIsGridSizeLocked
   } = useAppContext();
   
   const { undo, redo, canUndo, canRedo } = useHistory();
-  const { saveCurrentMap, clearMap, loadMap, deleteMapById } = useMapStorage();
-  const { clearFogRegions } = useFogRegions();
+  const { saveCurrentMap, clearMap } = useMapStorage();
 
   const handleExport = () => {
     if (backgroundCanvasRef.current && mapCanvasRef.current) {
@@ -33,7 +32,7 @@ const MapControls: React.FC = () => {
         mapCanvasRef.current,
         overlayCanvasRef.current,
         isDMView,
-        showFogRegions,
+        true, // Always show fog regions in export
         mapName
       );
     }
@@ -71,12 +70,6 @@ const MapControls: React.FC = () => {
           >
             Clear Map
           </button>
-          <button
-            onClick={clearFogRegions}
-            className="px-3 py-1 bg-orange-600 rounded hover:bg-orange-700 w-full"
-          >
-            Clear All Fog Regions
-          </button>
           <div className="flex gap-2">
             <button
               onClick={undo}
@@ -111,71 +104,43 @@ const MapControls: React.FC = () => {
                 type="range"
                 min="10"
                 max="100"
+                step={5}
                 value={gridSize}
-                onChange={(e) => setGridSize(Number(e.target.value))}
+                onChange={(e) => {
+                  const value = Math.max(5, Math.round(Number(e.target.value) / 5) * 5);
+                  if (!isGridSizeLocked) setGridSize(value);
+                }}
                 className="flex-1"
               />
-              <input
-                type="number"
-                min="10"
-                max="100"
-                value={gridSize}
-                onChange={(e) => setGridSize(Number(e.target.value))}
-                className="w-16 px-2 py-1 bg-gray-600 rounded text-sm"
-              />
+              {/* Read-only numeric display (no arrows/edit) */}
+              <span className="w-16 text-center">{gridSize}</span>
             </div>
           </div>
 
+          {/* Grid size lock */}
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={showFogRegions}
-              onChange={(e) => setShowFogRegions(e.target.checked)}
+              checked={isGridSizeLocked}
+              onChange={(e) => setIsGridSizeLocked(e.target.checked)}
               className="mr-2"
             />
-            Show Fog Regions
+            Lock Grid Size
+          </label>
+
+          {/* Canvas size lock toggle */}
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={isCanvasSizeLocked}
+              onChange={(e) => setIsCanvasSizeLocked(e.target.checked)}
+              className="mr-2"
+            />
+            Lock Canvas Size
           </label>
         </div>
       </div>
 
-      {/* Saved Maps */}
-      <div className="mb-4 p-3 bg-gray-700 rounded">
-        <h3 className="font-bold mb-2 text-yellow-300">Saved Maps ({savedMaps.length}):</h3>
-        <div className="space-y-2 max-h-60 overflow-y-auto">
-          {savedMaps.length === 0 ? (
-            <p className="text-sm text-gray-400">No saved maps yet</p>
-          ) : (
-            savedMaps.map((map) => (
-              <div key={map.id} className="bg-gray-600 p-2 rounded">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold">{map.name}</span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(map.date).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => loadMap(map)}
-                    className="px-2 py-1 bg-green-600 rounded text-xs flex-1"
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Delete "${map.name}"?`)) {
-                        deleteMapById(map.id);
-                      }
-                    }}
-                    className="px-2 py-1 bg-red-600 rounded text-xs"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </>
   );
 };

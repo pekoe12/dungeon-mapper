@@ -4,6 +4,7 @@ import ToolPanel from './ToolPanel';
 import MapControls from './MapControls';
 import FogRegionManager from './FogRegionManager';
 import PlayerView from '../views/PlayerView';
+import { useMapStorage } from '../../hooks/useMapStorage';
 
 const Sidebar: React.FC = () => {
   const {
@@ -17,7 +18,10 @@ const Sidebar: React.FC = () => {
     setIsResizing,
     dmNotes,
     setDmNotes,
+    savedMaps,
   } = useAppContext();
+  
+  const { loadMap, deleteMapById } = useMapStorage();
 
   // Handle sidebar resize
   const handleMouseMove = (e: MouseEvent) => {
@@ -111,8 +115,45 @@ const Sidebar: React.FC = () => {
             <ToolPanel />
             <MapControls />
             <FogRegionManager />
-
-            {/* Saved Maps section is in MapControls */}
+            
+            {/* Saved Maps */}
+            <div className="mb-4 p-3 bg-gray-700 rounded">
+              <h3 className="font-bold mb-2 text-yellow-300">Saved Maps ({savedMaps.length}):</h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {savedMaps.length === 0 ? (
+                  <p className="text-sm text-gray-400">No saved maps yet</p>
+                ) : (
+                  savedMaps.map((map) => (
+                    <div key={map.id} className="bg-gray-600 p-2 rounded">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold">{map.name}</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(map.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => loadMap(map)}
+                          className="px-2 py-1 bg-green-600 rounded text-xs flex-1"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete "${map.name}"?`)) {
+                              deleteMapById(map.id);
+                            }
+                          }}
+                          className="px-2 py-1 bg-red-600 rounded text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
             {/* Instructions 
             <div className="mb-4 p-3 bg-gray-700 rounded">

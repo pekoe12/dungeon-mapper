@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { drawGrid } from '../utils/canvas';
+import { drawGrid, scaleCanvas } from '../utils/canvas';
 import { useAppContext } from '../context/AppContext';
 
 
@@ -25,23 +25,9 @@ export const useCanvasSetup = () => {
 
     if (!bgCanvas || !mapCanvas || !overlayCanvas) return;
 
-    const dpr = (window.devicePixelRatio || 1);
-
-    // Set backing store size and CSS size
+    // DPR-safe scale for all layers
     [bgCanvas, mapCanvas, overlayCanvas].forEach((canvas) => {
-      canvas.width = Math.max(1, Math.floor(canvasWidth * dpr));
-      canvas.height = Math.max(1, Math.floor(canvasHeight * dpr));
-      // Keep CSS size in CSS pixels
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        // Prefer higher quality when scaling
-        // Note: strokes remain crisp due to DPR transform above
-        (ctx as any).imageSmoothingEnabled = true;
-        try { (ctx as any).imageSmoothingQuality = 'high'; } catch {}
-      }
+      scaleCanvas(canvas, canvasWidth, canvasHeight);
     });
 
     // Draw parchment background with grid
@@ -60,14 +46,12 @@ export const useCanvasSetup = () => {
       mapCtx.restore();
     }
 
-    // Initialize history with empty state
-    const initialHistoryState = {
-      mapData: mapCtx?.getImageData(0, 0, mapCanvas.width, mapCanvas.height) as ImageData,
-      fogRegions: []
-    };
-
-    setHistory([initialHistoryState]);
-    setHistoryStep(0);
+    // Initialize history with empty state matching backing store
+    if (mapCtx) {
+      const snapshot = mapCtx.getImageData(0, 0, mapCanvas.width, mapCanvas.height);
+      setHistory([{ mapData: snapshot, fogRegions: [] }]);
+      setHistoryStep(0);
+    }
   }, []);
 
   // Update grid when settings change
@@ -95,33 +79,174 @@ export const useCanvasResize = () => {
     mapCanvasRef,
     overlayCanvasRef,
     setCanvasWidth,
-    setCanvasHeight
+    setCanvasHeight,
+    canvasWidth,
+    canvasHeight,
+    isCanvasSizeLocked,
+    setHistory,
+    setHistoryStep,
+    fogRegions,
+    setFogRegions,
+    zoom
   } = useAppContext();
+  // Persist original bitmap and fog during an active drag so deltas are relative to the same source
+  const dragSrcRef = useRef<HTMLCanvasElement | null>(null);
+  const fogBeforeRef = useRef<typeof fogRegions | null>(null);
 
   const resizeCanvas = (width: number, height: number) => {
-    // Snap to grid
-    const snappedWidth = Math.round(width / gridSize) * gridSize;
-    const snappedHeight = Math.round(height / gridSize) * gridSize;
+    // Optionally snap to grid when canvas size lock is enabled
+    const snappedGrid = Math.max(5, Math.round(gridSize / 5) * 5);
+    const snappedWidth = isCanvasSizeLocked ? Math.round(width / snappedGrid) * snappedGrid : Math.round(width);
+    const snappedHeight = isCanvasSizeLocked ? Math.round(height / snappedGrid) * snappedGrid : Math.round(height);
 
-    setCanvasWidth(snappedWidth);
-    setCanvasHeight(snappedHeight);
+    // Clamp to maximum canvas size
+    const MAX_SIZE = 2000;
+    const clampedWidth = Math.min(snappedWidth, MAX_SIZE);
+    const clampedHeight = Math.min(snappedHeight, MAX_SIZE);
 
-    // Update all canvases
+    setCanvasWidth(clampedWidth);
+    setCanvasHeight(clampedHeight);
+
+    // Update all canvases with DPR-safe scaling
     [backgroundCanvasRef, mapCanvasRef, overlayCanvasRef].forEach(ref => {
       if (ref.current) {
-        ref.current.width = snappedWidth;
-        ref.current.height = snappedHeight;
+        scaleCanvas(ref.current, clampedWidth, clampedHeight);
       }
     });
 
     // Redraw grid
     const bgCtx = backgroundCanvasRef.current?.getContext('2d');
     if (bgCtx) {
-      drawGrid(bgCtx, snappedWidth, snappedHeight, gridSize, true);
+      drawGrid(bgCtx, clampedWidth, clampedHeight, gridSize, true);
     }
   };
 
-  return { resizeCanvas };
+  // Edge-based resize with copy/crop. Deltas are in CSS pixels.
+  // Resize using base width/height from drag start to avoid compounding
+  const resizeMap = (
+    deltas: { addLeft?: number; addRight?: number; addTop?: number; addBottom?: number },
+    base?: { width: number; height: number }
+  ) => {
+    // Convert screen deltas to world (CSS) pixels by removing zoom scale
+    const dxL = (deltas.addLeft ?? 0) / (zoom || 1);
+    const dxR = (deltas.addRight ?? 0) / (zoom || 1);
+    const dyT = (deltas.addTop ?? 0) / (zoom || 1);
+    const dyB = (deltas.addBottom ?? 0) / (zoom || 1);
+
+    // Work from original size on each drag update for stability
+    const addLeft = Math.round(dxL);
+    const addRight = Math.round(dxR);
+    const addTop = Math.round(dyT);
+    const addBottom = Math.round(dyB);
+
+    const originW = base?.width ?? canvasWidth;
+    const originH = base?.height ?? canvasHeight;
+
+    // Snap deltas to grid step so grids align
+    const step = Math.max(5, Math.round(gridSize / 5) * 5);
+    const sAddLeft = Math.round(addLeft / step) * step;
+    const sAddRight = Math.round(addRight / step) * step;
+    const sAddTop = Math.round(addTop / step) * step;
+    const sAddBottom = Math.round(addBottom / step) * step;
+
+    let targetW = originW + sAddLeft + sAddRight;
+    let targetH = originH + sAddTop + sAddBottom;
+
+    // Snap to grid when locked
+    const snappedGrid = Math.max(5, Math.round(gridSize / 5) * 5);
+    if (isCanvasSizeLocked) {
+      targetW = Math.round(targetW / snappedGrid) * snappedGrid;
+      targetH = Math.round(targetH / snappedGrid) * snappedGrid;
+    }
+
+    // Clamp to reasonable bounds
+    const MAX_SIZE = 2000;
+    targetW = Math.max(50, Math.min(MAX_SIZE, targetW));
+    targetH = Math.max(50, Math.min(MAX_SIZE, targetH));
+
+    const bgCanvas = backgroundCanvasRef.current;
+    const mapCanvas = mapCanvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!bgCanvas || !mapCanvas || !overlayCanvas) return;
+
+    // Snapshot the original bitmap once at drag start (first invocation)
+    if (!dragSrcRef.current) {
+      const snap = document.createElement('canvas');
+      snap.width = mapCanvas.width; // device pixels
+      snap.height = mapCanvas.height;
+      const sctx = snap.getContext('2d');
+      if (!sctx) return;
+      sctx.drawImage(mapCanvas, 0, 0);
+      dragSrcRef.current = snap;
+      // also capture fog regions to offset smoothly during drag
+      fogBeforeRef.current = fogRegions.map(r => r.map(p => ({ x: p.x, y: p.y })));
+    }
+    const srcCanvas = dragSrcRef.current as HTMLCanvasElement;
+
+    const dpr = (window.devicePixelRatio || 1);
+
+    // Apply new sizes to all layers
+    setCanvasWidth(targetW);
+    setCanvasHeight(targetH);
+    [bgCanvas, mapCanvas, overlayCanvas].forEach((c) => scaleCanvas(c, targetW, targetH));
+
+    // Compute src/dst rectangles in DEVICE pixels for exact copy/crop
+    const srcXDev = sAddLeft < 0 ? -sAddLeft * dpr : 0;
+    const srcYDev = sAddTop < 0 ? -sAddTop * dpr : 0;
+    const dstXDev = sAddLeft > 0 ? sAddLeft * dpr : 0;
+    const dstYDev = sAddTop > 0 ? sAddTop * dpr : 0;
+    const drawWDev = Math.max(0, Math.min(srcCanvas.width - srcXDev, mapCanvas.width - dstXDev));
+    const drawHDev = Math.max(0, Math.min(srcCanvas.height - srcYDev, mapCanvas.height - dstYDev));
+
+    // Redraw preserved pixels into the resized live map canvas
+    const mapCtx2 = mapCanvas.getContext('2d');
+    if (mapCtx2) {
+      mapCtx2.save();
+      mapCtx2.setTransform(1, 0, 0, 1, 0, 0);
+      // Clear fully first to avoid ghosted pixels
+      mapCtx2.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+      if (drawWDev > 0 && drawHDev > 0) {
+        mapCtx2.drawImage(
+          srcCanvas,
+          srcXDev, srcYDev, drawWDev, drawHDev,
+          dstXDev, dstYDev, drawWDev, drawHDev
+        );
+      }
+      mapCtx2.restore();
+    }
+
+    // Redraw grid to match new size
+    const bgCtx = bgCanvas.getContext('2d');
+    if (bgCtx) {
+      drawGrid(bgCtx, targetW, targetH, gridSize, true);
+    }
+    // Live update fog from the captured original so it stays aligned with the bitmap during drag
+    if (fogBeforeRef.current) {
+      const shifted = fogBeforeRef.current.map(region => region.map(p => ({ x: p.x + sAddLeft, y: p.y + sAddTop })));
+      setFogRegions(shifted);
+    }
+  };
+
+  // Finalize deferred updates at the end of a drag
+  useEffect(() => {
+    const onResizeEnd = () => {
+      const mapCanvas = mapCanvasRef.current;
+      if (!mapCanvas) return;
+      const ctx = mapCanvas.getContext('2d');
+      if (!ctx) return;
+      // clear per-drag snapshots
+      dragSrcRef.current = null;
+      fogBeforeRef.current = null;
+
+      const snapshot = ctx.getImageData(0, 0, mapCanvas.width, mapCanvas.height);
+      setHistory([{ mapData: snapshot, fogRegions }]);
+      setHistoryStep(0);
+    };
+    window.addEventListener('resize-handles-up', onResizeEnd);
+    return () => window.removeEventListener('resize-handles-up', onResizeEnd);
+  }, [fogRegions, mapCanvasRef, setFogRegions, setHistory, setHistoryStep]);
+
+  return { resizeCanvas, resizeMap };
 };
 
 export const useCanvasPanning = () => {

@@ -1,4 +1,5 @@
-import { Region, SavedMap } from '../types';
+import { Region } from '../types';
+import { SavedMap } from '../types/map';
 
 // Local Storage key
 const STORAGE_KEY = 'dndMaps';
@@ -32,7 +33,10 @@ export const createMapData = (
   revealedRegions: Set<number>,
   dmNotes: string,
   showGrid: boolean,
-  mapName: string
+  mapName: string,
+  width: number,
+  height: number,
+  cellSize: number | null
 ): SavedMap => {
   return {
     id: Date.now(),
@@ -42,7 +46,10 @@ export const createMapData = (
     fogRegions: fogRegions,
     revealedRegions: Array.from(revealedRegions),
     dmNotes: dmNotes,
-    showGrid: showGrid
+    showGrid: showGrid,
+    width,
+    height,
+    cellSize
   };
 };
 
@@ -54,7 +61,10 @@ export const saveMap = (
   dmNotes: string,
   showGrid: boolean,
   mapName: string,
-  savedMaps: SavedMap[]
+  savedMaps: SavedMap[],
+  width: number,
+  height: number,
+  cellSize: number | null
 ): SavedMap[] => {
   const mapData = createMapData(
     mapCanvas,
@@ -62,7 +72,10 @@ export const saveMap = (
     revealedRegions,
     dmNotes,
     showGrid,
-    mapName
+    mapName,
+    width,
+    height,
+    cellSize
   );
 
   const newSavedMaps = [...savedMaps, mapData];

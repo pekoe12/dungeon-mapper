@@ -82,7 +82,7 @@ const AppContent: React.FC = () => {
   }, [isDMView, fogRegions, revealedRegions, showFogRegions, currentRegion, tool, canvasWidth, canvasHeight, zoom, panOffset]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
+    <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas Area */}
         <div className="flex-1 relative bg-gray-800 flex items-center justify-center overflow-hidden">

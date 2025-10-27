@@ -1,5 +1,24 @@
 import { Point, Region } from '../types';
 
+// Scale a canvas for the current devicePixelRatio while preserving CSS size
+export const scaleCanvas = (
+  canvas: HTMLCanvasElement,
+  cssWidth: number,
+  cssHeight: number
+): CanvasRenderingContext2D | null => {
+  const dpr = (window.devicePixelRatio || 1);
+  canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  (ctx as any).imageSmoothingEnabled = true;
+  try { (ctx as any).imageSmoothingQuality = 'high'; } catch {}
+  return ctx;
+};
+
 // Draw grid on canvas
 export const drawGrid = (
   ctx: CanvasRenderingContext2D,

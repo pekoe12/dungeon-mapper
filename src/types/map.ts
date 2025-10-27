@@ -34,6 +34,10 @@ export interface SavedMap {
   revealedRegions: number[];
   dmNotes: string;
   showGrid: boolean;
+  // extended fields for exact restoration
+  width?: number;
+  height?: number;
+  cellSize?: number | null;
 }
 
 export interface SidebarState {
